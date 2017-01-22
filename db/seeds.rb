@@ -41,14 +41,17 @@ class CourseLoader
 
 		course = Course.find_by_path path
 		if course.nil?
-			create_course path
+			course = create_course path
 		else
 			update_existing_course course
 		end
 
+		git = Git.open "#{@courses_dir}#{course.path}"
+		course.last_commit = git.log.first.sha
+		course.save
+
 	end
 	def create_course path
-
 
 		abs_course_path = @courses_dir + path
 
@@ -76,9 +79,9 @@ class CourseLoader
 			create_chapter file_path
 		end
 
-		binding.pry
 		info = YAML.load_file(abs_course_path + '/info.yaml').with_indifferent_access
 		course = Course.new path:path
+		puts "Creating course: #{course.path}"
 		update_course_info course
 
 	end
@@ -86,7 +89,6 @@ class CourseLoader
 
 		course_path = @courses_dir + course.path
 		git = Git.open course_path
-
 		diff = git.diff course.last_commit
 
 		if diff.size == 0
@@ -109,8 +111,8 @@ class CourseLoader
 			end
 		end
 
-		resolve_page_diffs page_diffs
-		resolve_chapter_diffs chapter_diffs
+		resolve_page_diffs course, page_diffs
+		resolve_chapter_diffs course, chapter_diffs
 
 		if course_diff
 			if course_diff.type == 'deleted'
@@ -121,31 +123,33 @@ class CourseLoader
 		end
 
 	end
-	def resolve_page_diffs page_diffs
+	def resolve_page_diffs course, page_diffs
 
 		page_diffs.each do |page_diff|
+			path = "#{course.path}/#{page_diff.path[0...-'.md'.length]}"
 			case page_diff.type
 			when 'deleted'
-				Page.find_by_path(page_diff.path).destroy
+				Page.find_by_path(path).destroy
 			when 'new'
-				create_page page_diff.path
+				create_page path
 			when 'modified'
-				page = Page.find_by_path page_diff.path
+				page = Page.find_by_path path
 				update_page page
 			end
 		end
 
 	end
-	def resolve_chapter_diffs chapter_diffs
+	def resolve_chapter_diffs course, chapter_diffs
 
 		chapter_diffs.each do |chapter_diff|
-			case page_diff.type
+			path = "#{course.path}/#{chapter_diff.path}"
+			case chapter_diff.type
 			when 'deleted'
-				Chapter.find_by_path(chapter_diff.path).destroy
+				Chapter.find_by_path(path).destroy
 			when 'new'
-				create_chapter page_diff.path
+				create_chapter path
 			when 'modified'
-				chapter = Chapter.find_by_path page_diff.path
+				chapter = Chapter.find_by_path path
 				update_chapter chapter
 			end
 		end	
@@ -163,13 +167,18 @@ class CourseLoader
 			chapter_ids << Chapter.find_by_path("#{course.path}/#{chapter_path}").id
 		end
 		course.chapter_ids = chapter_ids.join(',')
+
+
 		course.save
+		puts "Updated course: #{course.path}"
+
 		course
 
 	end
 	def create_chapter path
 
 		chapter = Chapter.new path: path
+		puts "Creating chapter: #{chapter.path}"
 		update_chapter chapter
 
 	end
@@ -187,12 +196,14 @@ class CourseLoader
 		end
 		chapter.page_ids = page_ids.join(',')
 		chapter.save
+		puts "Updated chapter: #{chapter.path}"
 		chapter
 
 	end
 	def create_page path
 
 		page = Page.new path: path
+		puts "Creating page: #{page.path}"
 		update_page page
 
 	end
@@ -203,8 +214,9 @@ class CourseLoader
 		meta = /(?<=\<\!\-\-YAML)(.*)(?=\-\-\>)/m.match(content).captures.join("\n")
 		meta_hash = YAML.load(meta).with_indifferent_access
 		page.title = meta_hash[:title]
-		page.content = content, 
+		page.content = content
 		page.save
+		puts "Updated page: #{page.path}"
 		page
 
 	end
@@ -215,7 +227,6 @@ CourseLoader.new.load
 
 
 # all_files = Dir.glob("courses/ios/**/*")
-# binding.pry
 # .each do |file|
 # 	# puts file	
 # end
