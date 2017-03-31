@@ -149,7 +149,7 @@ class CourseLoader
 			when 'new'
 				create_chapter path
 			when 'modified'
-				chapter = Chapter.find_by_path path
+				chapter = Chapter.find_by_path path[0...-'/info.yaml'.length]
 				update_chapter chapter
 			end
 		end	

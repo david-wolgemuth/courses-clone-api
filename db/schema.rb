@@ -65,6 +65,7 @@ ActiveRecord::Schema.define(version: 20170122172941) do
     t.string   "first_name"
     t.string   "last_name"
     t.string   "password_digest"
+    t.string   "auth_token"
     t.integer  "admin_level"
     t.datetime "created_at",      null: false
     t.datetime "updated_at",      null: false
