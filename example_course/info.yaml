@@ -1,0 +1,6 @@
+title: 'Example Course'
+description: 'An example course written in markdown'
+chapters:
+  - introduction
+  - middle_chapter
+  - conclusion
